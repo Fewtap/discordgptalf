@@ -82,11 +82,12 @@ client.on("messageCreate", async (message) => {
 
 async function OnChannelMessage(message: Message<boolean>) {
   let userid = message.author.id;
+  await CheckAndInsertUser(userid);
   let data = await supabase.from("users").select("*").eq("userid", userid);
   if(data.data![0].eyes == true){
     let messages = await getLastMessages(message);
     let response = await getGPTResponseWithEyes(messages);
-    message.reply(response!);
+    message.channel.send(response!);
 
     return;
   }
@@ -113,7 +114,7 @@ async function getMessages(userid: any) {
 }
 
 async function getLastMessages(message: Message<boolean>){
-  let messages = await message.channel.messages.fetch({limit: 20});
+  let messages = await message.channel.messages.fetch({limit: 50});
   messages = messages.reverse();
   let editedMessages: { name: string; content: string; role: string; }[] = [];
 
@@ -121,7 +122,7 @@ async function getLastMessages(message: Message<boolean>){
     let content = message.content;
     const tagRegex = /<@\d+> /g; // matches a tag in the format <@!123456789012345678>
     
-    let name = message.author.username;
+    let name = message.author.displayName;
     content = content.replace(tagRegex, "");
     if(message.author.id == client.user!.id){
       editedMessages.push({name: 'Alf', content: content, role: "assistant"});
@@ -150,7 +151,7 @@ async function ToggleEyes(message: Message<boolean>){
   }
 }
 
-async function insertMessage(userid: any, message: string | null, role: string) {
+async function CheckAndInsertUser(userid: string) {
   //check if user is in database
   let userdata = await supabase
     .from("users")
@@ -173,7 +174,10 @@ async function insertMessage(userid: any, message: string | null, role: string) 
       eyes: false
     });
   }
+}
 
+async function insertMessage(userid: any, message: string | null, role: string) {
+  
 
   console.log("Inserting message");
   const {data, error} = await supabase.from("messages").insert({
@@ -237,8 +241,9 @@ async function getGPTResponseWithEyes(messages: any) {
     messages: gptmessages as any,
     model: "gpt-4",
   });
-
-  return response.choices[0].message.content;
+   let responsecontent = response.choices[0].message.content;
+   responsecontent = responsecontent!.replace("Alf:", "");
+  return responsecontent;
 }
 
 client.login(
