@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: "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",
+  apiKey: "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",
 });
 
 let client = new Client({
@@ -75,20 +75,31 @@ client.on("messageCreate", async (message) => {
 
       return;
     }
-    message.channel.sendTyping();
+    
     OnChannelMessage(message);
   }
 });
 
 async function OnChannelMessage(message: Message<boolean>) {
+  //call a function every two seconds until this function returns
+  const interval = setInterval(async () => {
+    message.channel.sendTyping();
+    console.log("Sending typing");
+  }, 10000);
+
+  
+
   let userid = message.author.id;
   await CheckAndInsertUser(userid);
   let data = await supabase.from("users").select("*").eq("userid", userid);
   if(data.data![0].eyes == true){
     let messages = await getLastMessages(message);
     let response = await getGPTResponseWithEyes(messages);
+    if(response.length > 2000){
+      message.channel.send("Message too long, try again");
+    }
     message.channel.send(response!);
-
+    clearInterval(interval);
     return;
   }
   
@@ -99,7 +110,7 @@ async function OnChannelMessage(message: Message<boolean>) {
   await insertMessage(message.author.id, text, "user");
   let response = await getGPTResponse(message.author.id);
   await insertMessage(message.author.id, response, "assistant");
-
+  clearInterval(interval);
   message.reply(response!);
 }
 
