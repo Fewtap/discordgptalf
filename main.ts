@@ -48,7 +48,7 @@ client.on("messageCreate", async (message) => {
     let commandused = await Commands(message);
     if (commandused) return;
 
-    OnChannelMessage(message);
+    OnChannelMessage(message, true);
   }
 });
 
@@ -81,7 +81,7 @@ async function Commands(message: Message<boolean>) {
   return commandused;
 }
 
-async function OnChannelMessage(message: Message<boolean>) {
+async function OnChannelMessage(message: Message<boolean>, DM = false) {
   //call a function every two seconds until this function returns
   const interval = setInterval(async () => {
     message.channel.sendTyping();
@@ -108,7 +108,8 @@ async function OnChannelMessage(message: Message<boolean>) {
   let response = await getGPTResponse(message.author.id);
   await insertMessage(message.author.id, response, "assistant");
   clearInterval(interval);
-  message.reply(response!);
+  if(DM) message.channel.send(response!);
+  else message.reply(response!);
 }
 
 async function getMessages(userid: any) {
