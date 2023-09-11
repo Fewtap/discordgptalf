@@ -10,6 +10,8 @@ let client = new Client({
   checkUpdate: false,
 });
 
+const max_tokens = 150;
+
 const supabase = createClient(
   "https://uryyymxvxqosudfonxws.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyeXl5bXh2eHFvc3VkZm9ueHdzIiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTMwNzE3MjQsImV4cCI6MjAwODY0NzcyNH0.4qXsICshGCgo3z37aIl-nUOVB9_PFpshRM8lVeQ6GQ4"
@@ -42,7 +44,7 @@ client.on("messageCreate", async (message) => {
     let commandused = await Commands(message);
     if (commandused) return;
 
-    console.log("Message received");
+    
     OnChannelMessage(message);
   } else if (message.channel.type === "DM") {
     let commandused = await Commands(message);
@@ -85,13 +87,14 @@ async function OnChannelMessage(message: Message<boolean>, DM = false) {
   //call a function every two seconds until this function returns
   const interval = setInterval(async () => {
     message.channel.sendTyping();
-    console.log("Sending typing");
+   
   }, 10000);
 
   let userid = message.author.id;
   await CheckAndInsertUser(userid);
   let data = await supabase.from("users").select("*").eq("userid", userid);
   if (data.data![0].eyes == true) {
+    console.log("Eyes are open")
     let messages = await getLastMessages(message);
     let response = await getGPTResponseWithEyes(messages);
     if (response.length > 2000) {
@@ -103,7 +106,7 @@ async function OnChannelMessage(message: Message<boolean>, DM = false) {
   }
 
   let text = message.content.replace(`<@${client.user!.id}> `, "");
-  console.log(text);
+
   await insertMessage(message.author.id, text, "user");
   let response = await getGPTResponse(message.author.id);
   await insertMessage(message.author.id, response, "assistant");
@@ -113,7 +116,7 @@ async function OnChannelMessage(message: Message<boolean>, DM = false) {
 }
 
 async function getMessages(userid: any) {
-  console.log(userid);
+  
   let response = await supabase
     .from("users")
     .select("messages(*)")
@@ -124,25 +127,71 @@ async function getMessages(userid: any) {
 }
 
 async function getLastMessages(message: Message<boolean>) {
-  let messages = await message.channel.messages.fetch({ limit: 50 });
-  messages = messages.reverse();
+  const messages = await message.channel.messages.fetch({ limit: 50 });
+  const messagesArray = Array.from(messages.values()).reverse();
   let editedMessages: { name: string; content: string; role: string }[] = [];
 
-  messages.forEach(async (message) => {
-    let content = message.content;
-    const tagRegex = /<@\d+> /g; // matches a tag in the format <@!123456789012345678>
-
-    let name = message.author.displayName;
-    content = content.replace(tagRegex, "");
-    if (message.author.id == client.user!.id) {
+  for(const x of messagesArray){
+    let content = await FormatMessage(x);
+    
+    let name = x.author.username;
+    if (x.author.id == client.user!.id) {
       editedMessages.push({ name: "Alf", content: content, role: "assistant" });
     } else {
+      console.log("Name: ",name)
       editedMessages.push({ name: name, content: content, role: "user" });
     }
-  });
+  }
+    
+  
+
+ console.log("Edited Messages: ",editedMessages)
 
   return editedMessages;
 }
+
+
+
+function ReplaceTags(message: Message<boolean>){
+  const tagRegex = /<@\d+> /g; // matches a tag in the format <@!123456789012345678>
+  if(!message.mentions.users.first()) return message.content;
+  if(message.mentions.users.first()!.id == client.user!.id) return message.content.replace(tagRegex, "Alf ");
+  else
+  return message.content.replace(tagRegex, message.mentions.users.first()!.username + " ");
+}
+
+async function FormatMessage(message: Message<boolean>) {
+  let content = ReplaceTags(message);
+  let completeString = "";
+  
+  if(message.type == "REPLY"){
+    
+    let repliedmessage = await message.fetchReference();
+    if(repliedmessage.author != client.user)
+    {
+       completeString = `${message.author.username} replied to ${repliedmessage.author.displayName} who wrote: [${repliedmessage.content}]:\n[The Reply]\n${content}`
+    }
+    else{
+      completeString = `${message.author.username} replied to you (Lilla Alf) who wrote: [${repliedmessage.content}]:\n[The Reply]\n${content}`
+    }
+
+    
+    
+    return completeString;
+  }
+  else{
+    completeString = `${content}`
+    
+    return completeString;
+
+  }
+
+  
+    
+    
+}
+
+
 
 async function ToggleEyes(message: Message<boolean>) {
   let data = await supabase
@@ -169,13 +218,13 @@ async function CheckAndInsertUser(userid: string) {
   let userdata = await supabase.from("users").select("*").eq("userid", userid);
 
   if (userdata.error) {
-    console.log("User not found, inserting");
+   
     await supabase.from("users").insert({
       userid: userid,
       eyes: false,
     });
   } else if (userdata.data.length == 0) {
-    console.log("User not found, inserting");
+    
     await supabase.from("users").insert({
       userid: userid,
       eyes: false,
@@ -188,22 +237,21 @@ async function insertMessage(
   message: string | null,
   role: string
 ) {
-  console.log("Inserting message");
+ 
   const { data, error } = await supabase.from("messages").insert({
     userid: userid,
     message: message,
     role: role,
   });
 
-  console.log(data);
-  console.log(error);
+ 
 }
 
 async function getGPTResponse(userid: string) {
-  console.log("Getting GPT Response");
-  console.log("Checking user id: " + userid);
+  
+  
   let messages: any = await getMessages(userid);
-  console.log(messages);
+  
   let gptmessages = [
     {
       role: "system",
@@ -221,6 +269,7 @@ async function getGPTResponse(userid: string) {
 
   let response = await openai.chat.completions.create({
     messages: gptmessages as any,
+    max_tokens: max_tokens,
     model: "gpt-4",
   });
 
@@ -242,9 +291,12 @@ async function getGPTResponseWithEyes(messages: any) {
       content: `${message.name}: ${message.content}`,
     });
   });
+
+  console.log(gptmessages);
   let response = await openai.chat.completions.create({
     messages: gptmessages as any,
     model: "gpt-4",
+    max_tokens: max_tokens
   });
   let responsecontent = response.choices[0].message.content;
   responsecontent = responsecontent!.replace("Alf:", "");
@@ -254,3 +306,5 @@ async function getGPTResponseWithEyes(messages: any) {
 client.login(
   "MTE0Mzg5MTY3NzQ4OTE0MzgxOA.GCK5AS.FCkFEKm-u2ML8TyRfwMyLTpPCysAG-5K8l2WUI"
 );
+ 
+
