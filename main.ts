@@ -39,6 +39,14 @@ client.on("messageCreate", async (message) => {
     message.channel.type === "GUILD_TEXT" ||
     message.channel.type == "GUILD_PUBLIC_THREAD"
   ) {
+    if(message.channel.id == "1139698916980428800")
+    {
+      //a random number between 0 and 100
+      let randomnumber = Math.floor(Math.random() * 100);
+      if(randomnumber < 10){
+        OnChannelMessage(message, false, true)
+      }
+    }
     if (!message.mentions.has(client.user!)) return;
     message.channel.sendTyping();
     let commandused = await Commands(message);
@@ -83,7 +91,7 @@ async function Commands(message: Message<boolean>) {
   return commandused;
 }
 
-async function OnChannelMessage(message: Message<boolean>, DM = false) {
+async function OnChannelMessage(message: Message<boolean>, DM = false, randomresponse = false) {
   //call a function every two seconds until this function returns
   const interval = setInterval(async () => {
     message.channel.sendTyping();
@@ -93,7 +101,10 @@ async function OnChannelMessage(message: Message<boolean>, DM = false) {
   let userid = message.author.id;
   await CheckAndInsertUser(userid);
   let data = await supabase.from("users").select("*").eq("userid", userid);
-  if (data.data![0].eyes == true) {
+  if (data.data![0].eyes == true){
+    
+  }
+  if (data.data![0].eyes == true || randomresponse) {
     console.log("Eyes are open")
     let messages = await getLastMessages(message);
     let response = await getGPTResponseWithEyes(messages);
@@ -275,6 +286,8 @@ async function getGPTResponse(userid: string) {
 
   return response.choices[0].message.content;
 }
+
+
 
 async function getGPTResponseWithEyes(messages: any) {
   let gptmessages: { role: any; content: string }[] = [
