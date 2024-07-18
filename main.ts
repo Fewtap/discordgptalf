@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
 
 const openai = new OpenAI({
-  apiKey: "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",
+  apiKey: "",
 });
 
 let client = new Client({
